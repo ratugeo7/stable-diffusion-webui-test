@@ -19,6 +19,7 @@ def has_tpu() -> bool:
         import torch_xla.core.xla_model as xm
         value = xm.xrt_world_size() > 0
     except ImportError:
+        print("Failed to import torch_xla.core.xla_model")
         pass
     return value
 
@@ -53,6 +54,7 @@ def get_optimal_device_name():
             import torch_xla.core.xla_model as xm
             device = xm.xla_device()
         except ImportError:
+            print("Failed to import torch_xla.core.xla_model")
             pass
 
     return device
