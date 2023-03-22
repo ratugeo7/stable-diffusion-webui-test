@@ -156,7 +156,7 @@ def model_hash(filename):
 
 def select_checkpoint():
     model_checkpoint = shared.opts.sd_model_checkpoint
-        
+
     checkpoint_info = checkpoint_alisases.get(model_checkpoint, None)
     if checkpoint_info is not None:
         return checkpoint_info
@@ -238,6 +238,8 @@ def read_state_dict(checkpoint_file, print_global_state=False, map_location=None
     _, extension = os.path.splitext(checkpoint_file)
     if extension.lower() == ".safetensors":
         device = map_location or shared.weight_load_location or devices.get_optimal_device_name()
+        if device == "xla:1":
+            device = "cpu"
         pl_sd = safetensors.torch.load_file(checkpoint_file, device=device)
     else:
         pl_sd = torch.load(checkpoint_file, map_location=map_location or shared.weight_load_location)
@@ -363,7 +365,7 @@ def enable_midas_autodownload():
         if not os.path.exists(path):
             if not os.path.exists(midas_path):
                 mkdir(midas_path)
-    
+
             print(f"Downloading midas model weights for {model_type} to {path}")
             request.urlretrieve(midas_urls[model_type], path)
             print(f"{model_type} downloaded")
