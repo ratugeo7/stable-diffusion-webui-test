@@ -52,7 +52,7 @@ def get_optimal_device_name():
     if has_tpu():
         try:
             import torch_xla.core.xla_model as xm
-            device = xm.xla_device()
+            device = f"{xm.xla_device()}"
         except ImportError:
             print("Failed to import torch_xla.core.xla_model")
             pass
