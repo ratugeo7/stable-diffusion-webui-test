@@ -241,7 +241,7 @@ def read_state_dict(checkpoint_file, print_global_state=False, map_location=None
         print(f">> detecting device: {device}")
         if "xla" in f"{device}":
             # device = "cpu"
-            device = device.split(":")[0]
+            # device = device.split(":")[0]
             print(f">> device now changed: {device}")
         # pl_sd = safetensors.torch.load_file(checkpoint_file)
         pl_sd = safetensors.torch.load_file(checkpoint_file, device=device)
