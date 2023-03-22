@@ -5,6 +5,14 @@ import gc
 import torch
 import re
 import safetensors.torch
+try:
+    import torch_xla
+    import torch_xla.core.xla_model as xm
+
+    print("xla_device: ", xm.xla_device())
+except ImportError:
+    print("Failed to import torch_xla.core.xla_model")
+    pass
 from omegaconf import OmegaConf
 from os import mkdir
 from urllib import request
@@ -23,6 +31,39 @@ model_path = os.path.abspath(os.path.join(paths.models_path, model_dir))
 checkpoints_list = {}
 checkpoint_alisases = {}
 checkpoints_loaded = collections.OrderedDict()
+
+### pure safetensors import \/
+
+import mmap
+import json
+import os
+
+
+def load_file(filename, device):
+    with open(filename, mode="r", encoding="utf8") as file_obj:
+        with mmap.mmap(file_obj.fileno(), length=0, access=mmap.ACCESS_READ) as m:
+            header = m.read(8)
+            n = int.from_bytes(header, "little")
+            metadata_bytes = m.read(n)
+            metadata = json.loads(metadata_bytes)
+
+    size = os.stat(filename).st_size
+    storage = torch.ByteStorage.from_file(filename, shared=False, size=size).untyped()
+    offset = n + 8
+    return {name: create_tensor(storage, info, offset) for name, info in metadata.items() if name != "__metadata__"}
+
+
+DTYPES = {"F32": torch.float32}
+device = "cpu"
+
+
+def create_tensor(storage, info, offset):
+    dtype = DTYPES[info["dtype"]]
+    shape = info["shape"]
+    start, stop = info["data_offsets"]
+    return torch.asarray(storage[start + offset : stop + offset], dtype=torch.uint8).view(dtype=dtype).reshape(shape)
+
+### pure safetensors import /\
 
 
 class CheckpointInfo:
@@ -234,17 +275,20 @@ def read_metadata_from_safetensors(filename):
         return res
 
 
+
 def read_state_dict(checkpoint_file, print_global_state=False, map_location=None):
     _, extension = os.path.splitext(checkpoint_file)
     if extension.lower() == ".safetensors":
         device = map_location or shared.weight_load_location or devices.get_optimal_device_name()
         print(f">> detecting device: {device}")
-        if "xla" in f"{device}":
-            device = "cpu"
-            # device = device.split(":")[0]
-            print(f">> device now changed: {device}")
+        # if "xla" in f"{device}":
+        #     device = "cpu"
+        #     # device = device.split(":")[0]
+        #     print(f">> device now changed: {device}")
         # pl_sd = safetensors.torch.load_file(checkpoint_file)
-        pl_sd = safetensors.torch.load_file(checkpoint_file, device=device)
+        # pl_sd = safetensors.torch.load_file(checkpoint_file, device=device)
+        print(f">> checkpoint_file: {checkpoint_file}")
+        pl_sd = load_file(checkpoint_file, device=device)
     else:
         pl_sd = torch.load(checkpoint_file, map_location=map_location or shared.weight_load_location)
 
