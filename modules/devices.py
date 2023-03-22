@@ -13,6 +13,15 @@ def has_mps() -> bool:
     else:
         return mac_specific.has_mps
 
+def has_tpu() -> bool:
+    value = False
+    try:
+        import torch_xla.core.xla_model as xm
+        value = xm.xrt_world_size() > 0
+    except ImportError:
+        pass
+    return value
+
 def extract_device_id(args, name):
     for x in range(len(args)):
         if name in args[x]:
@@ -31,13 +40,22 @@ def get_cuda_device_string():
 
 
 def get_optimal_device_name():
+    device = "cpu"
+
     if torch.cuda.is_available():
-        return get_cuda_device_string()
+        device = get_cuda_device_string()
 
     if has_mps():
-        return "mps"
+        device = "mps"
 
-    return "cpu"
+    if has_tpu():
+        try:
+            import torch_xla.core.xla_model as xm
+            device = xm.xla_device()
+        except ImportError:
+            pass
+
+    return device
 
 
 def get_optimal_device():
