@@ -2,6 +2,7 @@ import sys
 import contextlib
 import torch
 from modules import errors
+from sd_model_helper import get_xla_device
 
 if sys.platform == "darwin":
     from modules import mac_specific
@@ -16,10 +17,11 @@ def has_mps() -> bool:
 def has_tpu() -> bool:
     value = False
     try:
-        import torch_xla.core.xla_model as xm
-        value = xm.xrt_world_size() > 0
+        xla_device = get_xla_device()
+        if not "cpu" in xla_device:
+            value = True
     except ImportError:
-        print("Failed to import torch_xla.core.xla_model")
+        print("Failed to get TPU")
         pass
     return value
 
@@ -50,12 +52,7 @@ def get_optimal_device_name():
         device = "mps"
 
     if has_tpu():
-        try:
-            import torch_xla.core.xla_model as xm
-            device = f"{xm.xla_device()}"
-        except ImportError:
-            print("Failed to import torch_xla.core.xla_model")
-            pass
+        device = get_xla_device()
 
     return device
 
